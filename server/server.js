@@ -58,7 +58,7 @@ function setStatus(live, username, message) {
   console.log(live ? '🔴 EN VIVO @' + username : '⚪ ' + (message || 'sin live'));
 }
 
-try { console.log('tiktok-live-connector versión: ' + require('tiktok-live-connector/package.json').version); } catch (e) { /* no es importante */ }
+try { console.log('tiktok-live-connector versión: ' + require('tiktok-live-connector/package.json').version + ' (clase: ' + Connection.name + ')'); } catch (e) { console.log('tiktok-live-connector (clase: ' + Connection.name + ')'); }
 
 wss.on('listening', () => {
   console.log('Cohete Live server escuchando en ws://' + HOST + ':' + PORT);
@@ -188,7 +188,13 @@ function attempt(s) {
     })
     .catch((err) => {
       const msg = err && err.message ? err.message : String(err);
-      console.error('[tiktok] no se pudo conectar:', msg);
+      console.error('[tiktok] no se pudo conectar:', msg.slice(0, 200));
+      // Detalle útil para diagnosticar el 403 del servicio de firma
+      try {
+        const ex = (err && (err.exception || err.cause)) || err;
+        const r = ex && ex.response;
+        if (r) console.error('[tiktok] respuesta del servicio de firma: HTTP ' + r.status + ' ' + JSON.stringify(r.data).slice(0, 300));
+      } catch (e) { /* nada */ }
       const notLive = /offline|not.*live|LIVE has ended|not found|room id|UserOfflineError/i.test(msg);
       const signFail = /sign/i.test(msg);
       if (signFail) {
