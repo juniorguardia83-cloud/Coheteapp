@@ -39,6 +39,8 @@ function setStatus(live, username, message) {
   console.log(live ? '🔴 EN VIVO @' + username : '⚪ ' + (message || 'sin live'));
 }
 
+try { console.log('tiktok-live-connector versión: ' + require('tiktok-live-connector/package.json').version); } catch (e) { /* no es importante */ }
+
 wss.on('listening', () => {
   console.log('Cohete Live server escuchando en ws://' + HOST + ':' + PORT);
   console.log('Abre la app, toca ⚙️ y pon tu @usuario de TikTok.');
@@ -114,10 +116,17 @@ function attempt(s) {
   if (s.stopped) return;
   let conn;
   try {
-    conn = new Connection(s.username);
-  } catch (e) {
-    scheduleRetry(s, RETRY_NOT_LIVE_MS, 'Error al preparar la conexión: ' + e.message);
-    return;
+    // Opciones explícitas: algunas versiones de la librería leen options.* y fallan si no se les pasa nada.
+    conn = new Connection(s.username, { processInitialData: false, enableExtendedGiftInfo: false });
+  } catch (e1) {
+    console.error('[tiktok] falló al crear la conexión con opciones:', e1 && e1.stack ? e1.stack : e1);
+    try {
+      conn = new Connection(s.username);
+    } catch (e2) {
+      console.error('[tiktok] falló también sin opciones:', e2 && e2.stack ? e2.stack : e2);
+      scheduleRetry(s, RETRY_NOT_LIVE_MS, 'Error al preparar la conexión: ' + (e2 && e2.message ? e2.message : e2));
+      return;
+    }
   }
   s.conn = conn;
   let dropped = false;
