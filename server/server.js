@@ -20,6 +20,25 @@ const HOST = process.env.HOST || '127.0.0.1'; // solo este celular. Usa HOST=0.0
 const RETRY_NOT_LIVE_MS = 20000;
 const RETRY_DROPPED_MS = 10000;
 
+/* ---------- clave de Euler Stream (servicio de firma de la librería) ---------- */
+// Se lee de la variable EULER_API_KEY o del archivo server/euler.key (una sola línea).
+function loadApiKey() {
+  let key = (process.env.EULER_API_KEY || '').trim();
+  if (!key) {
+    try { key = require('fs').readFileSync(require('path').join(__dirname, 'euler.key'), 'utf8').trim(); } catch (e) { /* no hay archivo */ }
+  }
+  return key;
+}
+const API_KEY = loadApiKey();
+if (API_KEY) {
+  // Se aplica en todas las formas que usan las distintas versiones de la librería
+  try { if (tiktok.SignConfig) tiktok.SignConfig.apiKey = API_KEY; } catch (e) { /* nada */ }
+  try { if (tiktok.signatureProvider && tiktok.signatureProvider.config) { tiktok.signatureProvider.config.extraParams = tiktok.signatureProvider.config.extraParams || {}; tiktok.signatureProvider.config.extraParams.apiKey = API_KEY; } } catch (e) { /* nada */ }
+  console.log('🔑 Usando tu clave de Euler Stream (' + API_KEY.slice(0, 4) + '…)');
+} else {
+  console.log('ℹ️ Sin clave de Euler Stream. Si falla con "Failed to sign request", crea una gratis (ver README).');
+}
+
 process.on('unhandledRejection', (e) => console.error('[aviso] promesa rechazada:', e && e.message ? e.message : e));
 process.on('uncaughtException', (e) => console.error('[aviso] error no controlado:', e && e.message ? e.message : e));
 
@@ -117,7 +136,9 @@ function attempt(s) {
   let conn;
   try {
     // Opciones explícitas: algunas versiones de la librería leen options.* y fallan si no se les pasa nada.
-    conn = new Connection(s.username, { processInitialData: false, enableExtendedGiftInfo: false });
+    const opts = { processInitialData: false, enableExtendedGiftInfo: false };
+    if (API_KEY) opts.signApiKey = API_KEY;
+    conn = new Connection(s.username, opts);
   } catch (e1) {
     console.error('[tiktok] falló al crear la conexión con opciones:', e1 && e1.stack ? e1.stack : e1);
     try {
@@ -169,6 +190,14 @@ function attempt(s) {
       const msg = err && err.message ? err.message : String(err);
       console.error('[tiktok] no se pudo conectar:', msg);
       const notLive = /offline|not.*live|LIVE has ended|not found|room id|UserOfflineError/i.test(msg);
+      const signFail = /sign/i.test(msg);
+      if (signFail) {
+        // No martillar el servicio de firma: reintento más lento
+        scheduleRetry(s, 60000, API_KEY
+          ? 'El servicio de firma rechazó la petición (403). Revisa tu clave de Euler. Reintento en 60 s…'
+          : 'Tu live se encontró, pero el servicio de firma (Euler) rechazó la petición (403). Falta una clave gratis: mira el README. Reintento en 60 s…');
+        return;
+      }
       scheduleRetry(s, RETRY_NOT_LIVE_MS, notLive
         ? '@' + s.username + ' no está en vivo todavía. Reintento cada 20 s…'
         : 'No pude conectar (' + msg.slice(0, 80) + '). Reintento…');

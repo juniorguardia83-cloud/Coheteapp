@@ -37,6 +37,21 @@ Cuando inicies tu live, el indicador cambia a **🔴 EN VIVO** y cada persona qu
 
 > No hace falta tu contraseña. Nunca se la des a ninguna app.
 
+## Si sale "Failed to sign request" (403)
+
+La librería necesita un servicio de firma (**Euler Stream**). Sin clave usa el cupo gratis compartido, y a veces lo rechaza. La solución es una **clave gratis**:
+
+1. Crea una cuenta en https://www.eulerstream.com y genera una API key en su panel (dashboard).
+2. En Termux, guárdala en un archivo (reemplaza TU_CLAVE):
+   ```bash
+   cd ~/Coheteapp/server
+   echo "TU_CLAVE" > euler.key
+   bash iniciar.sh
+   ```
+   Al arrancar debe decir `🔑 Usando tu clave de Euler Stream`.
+
+El archivo `euler.key` no se sube a GitHub (está en `.gitignore`). No compartas tu clave con nadie.
+
 ## Ajustes (⚙️)
 
 | Ajuste | Para qué sirve |
