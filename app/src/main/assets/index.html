@@ -29,9 +29,7 @@
   .btn.go { background:linear-gradient(180deg,#ff6b3d,#d6361a); box-shadow:0 4px 0 #8a1f0c, 0 8px 14px rgba(0,0,0,.35); }
   .btn.demo-on { background:linear-gradient(180deg,#a66bff,#6a33d1); box-shadow:0 4px 0 #3e1b86, 0 8px 14px rgba(0,0,0,.35); }
 
-  #sub { position:fixed; left:12px; right:12px; top:50px; font-size:12px; color:#c9d0ff; opacity:.9;
-    text-shadow:0 1px 3px #000; pointer-events:none; }
-  #feed { position:fixed; left:10px; top:76px; width:62vw; pointer-events:none; display:flex; flex-direction:column; gap:4px; }
+  #feed { position:fixed; left:10px; top:50px; width:62vw; pointer-events:none; display:flex; flex-direction:column; gap:4px; }
   .toast { background:rgba(8,12,36,.55); border-left:3px solid #7b8cff; border-radius:8px; padding:4px 9px;
     font-size:12px; font-weight:600; animation:in .25s ease-out; transition:opacity .6s; }
   .toast.out { opacity:0; }
@@ -46,7 +44,7 @@
   #bar { position:fixed; left:0; right:0; bottom:0; padding:0 10px 14px; display:flex; gap:8px; justify-content:center; }
   #bar .btn { flex:1; max-width:140px; padding:11px 6px; font-size:13px; }
 
-  #modal { position:fixed; inset:0; background:rgba(3,5,20,.8); display:none; align-items:center; justify-content:center; padding:16px; }
+  #modal { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(3,5,20,.8); display:none; align-items:center; justify-content:center; padding:16px; }
   #modal.open { display:flex; }
   .card { background:#141a3d; border:1px solid rgba(255,255,255,.15); border-radius:18px; padding:16px; width:100%; max-width:380px; max-height:92vh; overflow:auto; }
   .card h2 { margin:0 0 4px; font-size:18px; }
@@ -58,20 +56,23 @@
   .chk { display:flex; align-items:center; gap:8px; margin-top:12px; font-size:14px; }
   .actions { display:flex; gap:8px; margin-top:16px; } .actions .btn { flex:1; }
   .btn.ghost { background:#222a63; box-shadow:0 4px 0 #11163d; }
+  #stbox { background:#0b1030; border:1px solid #2c3478; border-radius:12px; padding:10px 12px; margin:6px 0 4px; font-size:13px; line-height:1.5; }
+  #stbox .s { font-weight:800; }
+  #stbox .h { font-size:11px; color:#aeb6e8; margin-top:4px; word-break:break-word; }
+  .hint { font-size:11px; color:#8f98d6; margin-top:3px; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <div id="hud">
-  <div id="pill"><span id="dot"></span><span id="pillText">Conectando…</span></div>
+  <div id="pill"><span id="dot"></span><span id="pillText">Sin live</span></div>
   <div class="right">
     <div class="chip" id="qChip">👥 0</div>
-    <div class="chip" id="bChip">🚀 0/6</div>
+    <div class="chip" id="bChip">🚀 0</div>
     <button class="btn round" id="gear">⚙️</button>
   </div>
 </div>
-<div id="sub"></div>
 <div id="feed"></div>
 <div id="banner"></div>
 
@@ -85,16 +86,27 @@
   <div class="card">
     <h2>⚙️ Ajustes de Cohete Live</h2>
     <p>Pon tu @usuario de TikTok. El servidor de Termux (carpeta <b>server</b>) debe estar encendido en este mismo celular.</p>
+
+    <div id="stbox">
+      <div class="s" id="stServer">…</div>
+      <div class="s" id="stLive">…</div>
+      <div class="h" id="stHelp"></div>
+    </div>
+
     <label for="fUser">Tu usuario de TikTok (sin @)</label>
     <input type="text" id="fUser" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="tuusuario">
     <div class="row">
       <div><label for="fHost">Servidor</label><input type="text" id="fHost" autocomplete="off" autocapitalize="off"></div>
       <div><label for="fPort">Puerto</label><input type="number" id="fPort"></div>
     </div>
+    <label for="fSeats">Asientos por cohete (1 a 200)</label>
+    <input type="number" id="fSeats" min="1" max="200">
+    <label>Tiempo para despegar (desde que sube el primero)</label>
     <div class="row">
-      <div><label for="fSeats">Asientos del cohete</label><input type="number" id="fSeats" min="1" max="12"></div>
-      <div><label for="fSecs">Segundos para despegar</label><input type="number" id="fSecs" min="10" max="600"></div>
+      <div><input type="number" id="fMin" min="0" max="60" placeholder="min"><div class="hint">minutos (0 a 60)</div></div>
+      <div><input type="number" id="fSec" min="0" max="59" placeholder="seg"><div class="hint">segundos (0 a 59)</div></div>
     </div>
+    <div class="hint">Máximo 1 hora (60:00). Mínimo 10 segundos.</div>
     <div class="chk"><input type="checkbox" id="fSound"><label for="fSound" style="margin:0">Sonidos</label></div>
     <div class="actions">
       <button class="btn ghost" id="mClose">Cerrar</button>
@@ -112,7 +124,11 @@ var $ = function (id) { return document.getElementById(id); };
 var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
 var lerp = function (a, b, t) { return a + (b - a) * t; };
 function hash(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-function fmtTime(s) { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+function fmtTime(s) {
+  s = Math.max(0, Math.ceil(s));
+  var m = Math.floor(s / 60), r = s % 60;
+  return m + ':' + ('0' + r).slice(-2);
+}
 
 var cvs = $('c'), ctx = cvs.getContext('2d');
 var W = 0, H = 0, DPR = 1;
@@ -127,12 +143,16 @@ function rr(x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
+function ell(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, 6.283); }
 
 /* ============ ajustes ============ */
+var MAX_SEATS = 200, MAX_SECS = 3600, MIN_SECS = 10;
 var DEF = { user: '', host: '127.0.0.1', port: 8765, seats: 6, launchSecs: 45, sound: true };
 var cfg = {};
 for (var k in DEF) cfg[k] = DEF[k];
 try { var saved = JSON.parse(localStorage.getItem('cohete_cfg') || '{}'); for (var k2 in saved) cfg[k2] = saved[k2]; } catch (e) {}
+cfg.seats = clamp(parseInt(cfg.seats, 10) || DEF.seats, 1, MAX_SEATS);
+cfg.launchSecs = clamp(parseInt(cfg.launchSecs, 10) || DEF.launchSecs, MIN_SECS, MAX_SECS);
 function saveCfg() { try { localStorage.setItem('cohete_cfg', JSON.stringify(cfg)); } catch (e) {} }
 
 /* ============ sonido ============ */
@@ -160,46 +180,109 @@ var particles = [];
 var net = { server: false, live: false, viewers: 0, user: '', msg: '' };
 var demo = false, demoTimer = 0;
 
-var rocket = { state: 'arriving', alt: 0, vel: 0, seated: [], boarding: [], boardCd: 0, timer: null, cd: 0, awayT: 0, arriveT: 0, lastCount: 0 };
+function makeRocket(i) {
+  return { i: i, state: 'arriving', alt: 0, vel: 0, seated: [], boarding: [], boardCd: 0, timer: null, cd: 0,
+    awayT: 0, arriveT: -0.9 * i, lastCount: 0, x: 0, base: 0, h: 0, w: 0, padRx: 0, padRy: 0, door: { x: 0, y: 0 } };
+}
+var rockets = [makeRocket(0), makeRocket(1)];
 
 /* ============ layout (perspectiva 2.5D) ============ */
-var horizon, rocketX, rocketBase, rocketH, rocketW, padRx, padRy, door, path = [], pathLen = 0, stars = [], mountA = [], mountB = [];
+var horizon, path = [], pathLen = 0, stars = [], mountA = [], mountB = [], skyline = [], craters = [], deco = [], rover = null;
+
+function mulberry(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 function layout() {
   horizon = H * 0.30;
-  rocketBase = H * 0.50;
-  rocketH = Math.min(H * 0.32, W * 0.8);
-  rocketW = rocketH * 0.32;
-  rocketX = W * 0.64;
-  padRx = rocketW * 1.55;
-  padRy = padRx * 0.26;
-  door = { x: rocketX - rocketW * 0.15, y: rocketBase + padRy * 0.55 };
+  var baseH = Math.min(H * 0.27, W * 0.62);
+  var cf = [{ x: W * 0.30, base: H * 0.545, s: 1 }, { x: W * 0.745, base: H * 0.465, s: 0.86 }];
+  rockets.forEach(function (R, i) {
+    var c = cf[i];
+    R.x = c.x; R.base = c.base; R.h = baseH * c.s; R.w = R.h * 0.32;
+    R.padRx = R.w * 1.55; R.padRy = R.padRx * 0.26;
+    R.door = { x: R.x - R.w * 0.15, y: R.base + R.padRy * 0.55 };
+  });
 
-  // camino de la cola en zigzag (de la puerta hacia la camara)
-  var A = { x: rocketX - rocketW * 0.95, y: rocketBase + H * 0.038 };
-  var r1 = rocketBase + H * 0.095, r2 = rocketBase + H * 0.17, r3 = rocketBase + H * 0.245;
-  var L = W * 0.14, R = W * 0.86;
-  var pts = [A, { x: L, y: r1 }, { x: R, y: r1 + (r2 - r1) * 0.5 }, { x: R, y: r2 }, { x: L, y: r2 + (r3 - r2) * 0.5 }, { x: L, y: r3 }, { x: R * 0.98, y: r3 + H * 0.012 }];
-  // suavizado simple: la primera recta baja de A a L,r1
-  path = [pts[0]];
-  for (var i = 1; i < pts.length; i++) path.push(pts[i]);
-  pathLen = 0;
+  // camino de la cola en zigzag (empieza entre los dos cohetes y baja hacia la camara)
+  var b0 = rockets[0].base;
+  var S0 = { x: W * 0.52, y: b0 + H * 0.09 };
+  var r1 = b0 + H * 0.125, r2 = b0 + H * 0.195, r3 = b0 + H * 0.26;
+  var L = W * 0.14, R2 = W * 0.86;
+  path = [S0, { x: L, y: r1 }, { x: R2, y: r1 + (r2 - r1) * 0.5 }, { x: R2, y: r2 }, { x: L, y: r2 + (r3 - r2) * 0.5 }, { x: L, y: r3 }, { x: R2 * 0.98, y: r3 + H * 0.012 }];
+  pathLen = 0; path[0].d = 0;
   for (var j = 1; j < path.length; j++) {
     var dx = path[j].x - path[j - 1].x, dy = path[j].y - path[j - 1].y;
     path[j].d = pathLen + Math.sqrt(dx * dx + dy * dy);
     pathLen = path[j].d;
   }
-  path[0].d = 0;
 
+  var rnd = mulberry(7);
   stars = [];
-  var seed = 7;
-  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
-  for (var s = 0; s < 110; s++) stars.push({ x: rnd() * W, y: rnd() * horizon * 1.05, r: 0.4 + rnd() * 1.4, p: rnd() * 6.28 });
+  for (var s = 0; s < 120; s++) stars.push({ x: rnd() * W, y: rnd() * horizon * 1.05, r: 0.4 + rnd() * 1.4, p: rnd() * 6.28 });
   mountA = []; mountB = [];
   for (var m = 0; m <= 12; m++) {
     mountA.push({ x: (m / 12) * W, y: horizon - (14 + rnd() * 38) });
     mountB.push({ x: (m / 12) * W, y: horizon - (4 + rnd() * 22) });
   }
+  // ciudad/base espacial en el horizonte
+  skyline = [];
+  var sx = -4;
+  while (sx < W) {
+    var bw = 10 + rnd() * 22, bh = 8 + rnd() * 34 * (0.6 + 0.4 * Math.sin(sx / W * 3.14));
+    var wins = [];
+    for (var wy = 4; wy < bh - 3; wy += 6) for (var wx = 3; wx < bw - 3; wx += 5) if (rnd() < 0.55) wins.push({ x: wx, y: wy, p: rnd() * 6.28 });
+    skyline.push({ x: sx, w: bw, h: bh, wins: wins, ant: rnd() < 0.25 });
+    sx += bw + 1 + rnd() * 3;
+  }
+  // crateres
+  craters = [];
+  for (var cr = 0; cr < 11; cr++) craters.push({ x: rnd() * W, y: horizon + 24 + rnd() * (H - horizon - 130), r: 10 + rnd() * 24 });
+
+  buildDeco(rnd);
+}
+
+function nearPath(x, y, minD) {
+  for (var d = 0; d <= pathLen; d += 16) {
+    var p = pathPoint(d);
+    if (Math.abs(p.x - x) < minD && Math.abs(p.y - y) < minD * 0.9) return true;
+  }
+  return false;
+}
+function pathPoint(d) {
+  d = clamp(d, 0, pathLen);
+  for (var j = 1; j < path.length; j++) {
+    if (d <= path[j].d || j === path.length - 1) {
+      var a = path[j - 1], b = path[j], t = clamp((d - a.d) / Math.max(1, b.d - a.d), 0, 1);
+      return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) };
+    }
+  }
+  return { x: path[0].x, y: path[0].y };
+}
+
+function buildDeco(rnd) {
+  deco = [];
+  var kinds = ['rock', 'rock', 'rock', 'crystal', 'crystal', 'lamp', 'lamp', 'tank', 'dish', 'flag', 'crates', 'plant', 'plant', 'rock'];
+  var tries = 0;
+  while (deco.length < 22 && tries < 500) {
+    tries++;
+    var kind = kinds[Math.floor(rnd() * kinds.length)];
+    var y = horizon + 22 + rnd() * (H * 0.90 - horizon - 22), x = 14 + rnd() * (W - 28);
+    var ok = true;
+    // lejos de los cohetes y plataformas
+    rockets.forEach(function (R) {
+      if (Math.abs(x - R.x) < R.padRx * 1.35 && y > R.base - R.h * 0.1 && y < R.base + R.padRy * 3.2) ok = false;
+      if (Math.abs(x - R.x) < R.w * 1.2 && y < R.base + R.padRy && y > R.base - R.h) ok = false;
+      if (Math.abs(x - (R.x + R.padRx * 0.85)) < R.w * 0.7 && y < R.base + R.padRy && y > R.base - R.h) ok = false;
+    });
+    if (!ok) continue;
+    if (nearPath(x, y, 40)) continue;
+    for (var q = 0; q < deco.length; q++) if (Math.abs(deco[q].x - x) < 34 && Math.abs(deco[q].y - y) < 22) { ok = false; break; }
+    if (!ok) continue;
+    deco.push({ kind: kind, x: x, y: y, s: 0.8 + rnd() * 0.6, seed: rnd() * 10, hue: rnd() < 0.5 ? 185 : 305, k: 0.8 + rnd() * 0.5 });
+  }
+  deco.sort(function (a, b) { return a.y - b.y; });
+  // vehiculo que patrulla
+  rover = { kind: 'rover', x: W * 0.2, y: H * 0.865, s: 1, seed: 1, dir: 1, hue: 40 };
+  deco.push(rover);
 }
 
 function resize() {
@@ -216,16 +299,9 @@ function unit(y) { return Math.min(W, H) * 0.048 * depthScale(y); }
 
 function slotPos(i) {
   var spacing = Math.max(48, Math.min(W, H) * 0.145);
-  var d = Math.min(pathLen, spacing * 0.55 + i * spacing);
-  for (var j = 1; j < path.length; j++) {
-    if (d <= path[j].d || j === path.length - 1) {
-      var a = path[j - 1], b = path[j];
-      var seg = Math.max(1, b.d - a.d);
-      var t = clamp((d - a.d) / seg, 0, 1);
-      return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), hidden: (spacing * 0.55 + i * spacing) > pathLen + 4 };
-    }
-  }
-  return { x: path[0].x, y: path[0].y, hidden: true };
+  var want = spacing * 0.55 + i * spacing;
+  var p = pathPoint(want);
+  return { x: p.x, y: p.y, hidden: want > pathLen + 4 };
 }
 
 /* ============ personajes (skins) ============ */
@@ -235,7 +311,7 @@ function newChar(u) {
   var c = {
     id: String(u.id || name).toLowerCase(), name: name, avatar: u.avatar || '',
     hue: h % 360, style: (h >> 9) % 5, seed: (h % 1000) / 100,
-    x: -40, y: H * 0.8, tx: 0, ty: 0, state: 'queue', vip: false,
+    x: -40, y: H * 0.8, tx: 0, ty: 0, state: 'queue', vip: false, rk: null,
     bubble: '', bubbleT: 0, phase: Math.random() * 6, walk: 0, alpha: 0, img: null, imgOk: false
   };
   if (c.avatar) {
@@ -294,7 +370,7 @@ function addViewer(u, vip, how) {
 }
 
 /* ============ particulas ============ */
-function spawn(p) { if (particles.length < 420) particles.push(p); }
+function spawn(p) { if (particles.length < 460) particles.push(p); }
 function smoke(x, y, n, big) {
   for (var i = 0; i < n; i++) {
     var a = Math.random() * 6.28, sp = (20 + Math.random() * 80) * (big ? 1.6 : 1);
@@ -309,64 +385,68 @@ function sparks(x, y, n, col) {
   }
 }
 
-/* ============ cohete: logica ============ */
-function boardedCount() { return rocket.seated.length + rocket.boarding.length; }
+/* ============ cohetes: logica ============ */
+function boardedCount(R) { return R.seated.length + R.boarding.length; }
 
-function startCountdown() {
-  if (rocket.state !== 'idle' || rocket.seated.length === 0) return false;
-  rocket.state = 'countdown'; rocket.cd = 3.99; rocket.lastCount = 4;
+function startCountdown(R) {
+  if (R.state !== 'idle' || R.seated.length === 0) return false;
+  R.state = 'countdown'; R.cd = 3.99; R.lastCount = 4;
   return true;
 }
 
-function endFlight() {
-  var names = rocket.seated.map(function (c) { return c.name; });
-  banner('🚀 ¡Despegó con ' + (names.length > 4 ? names.slice(0, 4).join(', ') + ' y ' + (names.length - 4) + ' más' : names.join(', ')) + '!', 4800);
-  toast('🚀 Despegue con ' + names.length + ' pasajero' + (names.length === 1 ? '' : 's'));
-  rocket.seated.forEach(function (c) { c.state = 'gone'; delete people[c.id]; });
-  rocket.seated = []; rocket.boarding = []; rocket.timer = null;
+function endFlight(R) {
+  var names = R.seated.map(function (c) { return c.name; });
+  var list = names.length > 4 ? names.slice(0, 4).join(', ') + ' y ' + (names.length - 4) + ' más' : names.join(', ');
+  banner('🚀 ¡Cohete ' + (R.i + 1) + ' despegó con ' + list + '!', 4800);
+  toast('🚀 Cohete ' + (R.i + 1) + ': ' + names.length + ' pasajero' + (names.length === 1 ? '' : 's'));
+  R.seated.forEach(function (c) { c.state = 'gone'; delete people[c.id]; });
+  R.seated = []; R.boarding = []; R.timer = null;
 }
+
+function updateRocket(R, dt) {
+  if (R.state === 'arriving') {
+    R.arriveT += dt;
+    var t = clamp(R.arriveT / 2.6, 0, 1), e = 1 - Math.pow(1 - t, 3);
+    R.alt = (1 - e) * (R.base + R.h * 1.2);
+    if (t >= 1) { R.alt = 0; R.state = 'idle'; R.boardCd = 0.6; smoke(R.x, R.base, 14, true); beep(140, 0.5, 'sawtooth', 0.04, 60); }
+    else if (R.arriveT > 0 && Math.random() < 0.5) sparks(R.x, R.base - R.alt + 4, 1, '#ffb347');
+  } else if (R.state === 'idle') {
+    if (R.timer !== null) R.timer -= dt;
+    R.boardCd -= dt;
+    if (R.boarding.length === 0) {
+      var full = R.seated.length >= cfg.seats;
+      var late = R.timer !== null && R.timer <= 0 && R.seated.length > 0;
+      if (full || late) startCountdown(R);
+    }
+  } else if (R.state === 'countdown') {
+    R.cd -= dt;
+    var n = Math.ceil(R.cd);
+    if (n !== R.lastCount && n > 0) { R.lastCount = n; beep(660, 0.18, 'square', 0.04); }
+    if (R.cd <= 0) { R.state = 'launch'; R.vel = 30; R.alt = 0; beep(90, 3, 'sawtooth', 0.07, 400); smoke(R.x, R.base, 26, true); }
+    else if (Math.random() < 0.4) smoke(R.x + (Math.random() - 0.5) * R.w, R.base, 1, false);
+  } else if (R.state === 'launch') {
+    R.vel += 300 * dt; R.alt += R.vel * dt;
+    if (R.alt < R.h * 1.5) smoke(R.x + (Math.random() - 0.5) * R.w * 1.2, R.base, 3, true);
+    sparks(R.x, R.base - R.alt + 6, 2, '#ffd25a');
+    if (R.alt > R.base + R.h * 1.3) { R.state = 'away'; R.awayT = 2.2; endFlight(R); }
+  } else if (R.state === 'away') {
+    R.awayT -= dt;
+    if (R.awayT <= 0) { R.state = 'arriving'; R.arriveT = 0; R.alt = R.base + R.h * 1.2; }
+  }
+}
+
+function boardingAll() {
+  var out = [];
+  for (var i = 0; i < rockets.length; i++) for (var j = 0; j < rockets[i].boarding.length; j++) out.push(rockets[i].boarding[j]);
+  return out;
+}
+
+var shoot = { t: 4, on: 0, x: 0, y: 0, vx: 0, vy: 0 };
 
 function update(dt) {
   time += dt;
 
-  // --- maquina de estados del cohete ---
-  if (rocket.state === 'arriving') {
-    rocket.arriveT += dt;
-    var t = clamp(rocket.arriveT / 2.6, 0, 1), e = 1 - Math.pow(1 - t, 3);
-    rocket.alt = (1 - e) * (rocketBase + rocketH * 1.2);
-    if (t >= 1) { rocket.alt = 0; rocket.state = 'idle'; rocket.boardCd = 0.6; smoke(rocketX, rocketBase, 14, true); beep(140, 0.5, 'sawtooth', 0.04, 60); }
-    else if (Math.random() < 0.5) sparks(rocketX, rocketBase - rocket.alt + 4, 1, '#ffb347');
-  } else if (rocket.state === 'idle') {
-    if (rocket.timer !== null) rocket.timer -= dt;
-    rocket.boardCd -= dt;
-    var front = queue[0];
-    if (front && boardedCount() < cfg.seats && rocket.boardCd <= 0) {
-      var s0 = slotPos(0);
-      if (Math.hypot(front.x - s0.x, front.y - s0.y) < Math.max(18, unit(s0.y) * 1.6)) {
-        queue.shift(); front.state = 'boarding'; front.tx = door.x; front.ty = door.y;
-        rocket.boarding.push(front); rocket.boardCd = 0.85;
-      }
-    }
-    if (rocket.boarding.length === 0) {
-      var full = rocket.seated.length >= cfg.seats;
-      var late = rocket.timer !== null && rocket.timer <= 0 && rocket.seated.length > 0;
-      if (full || late) startCountdown();
-    }
-  } else if (rocket.state === 'countdown') {
-    rocket.cd -= dt;
-    var n = Math.ceil(rocket.cd);
-    if (n !== rocket.lastCount && n > 0) { rocket.lastCount = n; beep(660, 0.18, 'square', 0.04); }
-    if (rocket.cd <= 0) { rocket.state = 'launch'; rocket.vel = 30; rocket.alt = 0; beep(90, 3, 'sawtooth', 0.07, 400); smoke(rocketX, rocketBase, 26, true); }
-    else if (Math.random() < 0.4) smoke(rocketX + (Math.random() - 0.5) * rocketW, rocketBase, 1, false);
-  } else if (rocket.state === 'launch') {
-    rocket.vel += 300 * dt; rocket.alt += rocket.vel * dt;
-    if (rocket.alt < rocketH * 1.5) smoke(rocketX + (Math.random() - 0.5) * rocketW * 1.2, rocketBase, 3, true);
-    sparks(rocketX, rocketBase - rocket.alt + 6, 2, '#ffd25a');
-    if (rocket.alt > rocketBase + rocketH * 1.3) { rocket.state = 'away'; rocket.awayT = 2.2; endFlight(); }
-  } else if (rocket.state === 'away') {
-    rocket.awayT -= dt;
-    if (rocket.awayT <= 0) { rocket.state = 'arriving'; rocket.arriveT = 0; rocket.alt = rocketBase + rocketH * 1.2; }
-  }
+  for (var ri = 0; ri < rockets.length; ri++) updateRocket(rockets[ri], dt);
 
   // --- cola: objetivos ---
   for (var i = 0; i < queue.length; i++) {
@@ -375,12 +455,28 @@ function update(dt) {
     c.targetAlpha = p.hidden ? 0 : 1;
   }
 
+  // --- el primero de la cola sube al primer cohete libre (llena el 1 y luego el 2) ---
+  var front = queue[0];
+  if (front) {
+    var s0 = slotPos(0);
+    if (Math.hypot(front.x - s0.x, front.y - s0.y) < Math.max(18, unit(s0.y) * 1.6)) {
+      for (var rk = 0; rk < rockets.length; rk++) {
+        var R = rockets[rk];
+        if (R.state === 'idle' && boardedCount(R) < cfg.seats && R.boardCd <= 0) {
+          queue.shift(); front.state = 'boarding'; front.rk = R; front.tx = R.door.x; front.ty = R.door.y;
+          R.boarding.push(front); R.boardCd = queue.length > 12 ? 0.3 : 0.85;
+          break;
+        }
+      }
+    }
+  }
+
   // --- mover personajes ---
-  var all = queue.concat(rocket.boarding);
+  var all = queue.concat(boardingAll());
   for (var k = 0; k < all.length; k++) {
     var ch = all[k];
     var dx = ch.tx - ch.x, dy = ch.ty - ch.y, dist = Math.hypot(dx, dy);
-    var spd = ch.state === 'boarding' ? 90 : 140;
+    var spd = ch.state === 'boarding' ? 110 : 140;
     var step = Math.min(dist, Math.max(18, dist * 3.2) * dt * (spd / 100));
     if (dist > 0.5) { ch.x += dx / dist * step; ch.y += dy / dist * step; }
     var moving = dist > 4;
@@ -392,15 +488,17 @@ function update(dt) {
   }
 
   // subida al cohete
-  for (var b = rocket.boarding.length - 1; b >= 0; b--) {
-    var bc = rocket.boarding[b];
-    if (Math.hypot(bc.tx - bc.x, bc.ty - bc.y) < 6) {
-      rocket.boarding.splice(b, 1);
-      bc.state = 'seated'; rocket.seated.push(bc);
-      if (rocket.timer === null) rocket.timer = cfg.launchSecs;
-      sparks(door.x, door.y - 20, 10, '#9fd0ff');
-      toast('🧑‍🚀 ' + bc.name + ' subió al cohete');
-      beep(700, 0.1, 'triangle', 0.05, 1000);
+  for (var r2 = 0; r2 < rockets.length; r2++) {
+    var RR = rockets[r2];
+    for (var b = RR.boarding.length - 1; b >= 0; b--) {
+      var bc = RR.boarding[b];
+      if (Math.hypot(bc.tx - bc.x, bc.ty - bc.y) < 6) {
+        RR.boarding.splice(b, 1);
+        bc.state = 'seated'; RR.seated.push(bc);
+        if (RR.timer === null) RR.timer = cfg.launchSecs;
+        sparks(RR.door.x, RR.door.y - 20, 8, '#9fd0ff');
+        beep(700, 0.08, 'triangle', 0.04, 1000);
+      }
     }
   }
 
@@ -413,10 +511,16 @@ function update(dt) {
     if (pt.kind === 'smoke') { pt.vx *= (1 - dt * 0.6); pt.r += dt * 16; }
   }
 
+  // --- estrella fugaz y vehiculo ---
+  shoot.t -= dt;
+  if (shoot.t <= 0 && !shoot.on) { shoot.on = 1; shoot.x = Math.random() * W * 0.8; shoot.y = Math.random() * horizon * 0.5; shoot.vx = 260 + Math.random() * 120; shoot.vy = 110 + Math.random() * 60; shoot.life = 0; }
+  if (shoot.on) { shoot.x += shoot.vx * dt; shoot.y += shoot.vy * dt; shoot.life += dt; if (shoot.life > 0.9) { shoot.on = 0; shoot.t = 4 + Math.random() * 6; } }
+  if (rover) { rover.x += rover.dir * 26 * dt; if (rover.x > W - 30) rover.dir = -1; if (rover.x < 30) rover.dir = 1; }
+
   // --- demo ---
   if (demo) {
     demoTimer -= dt;
-    if (demoTimer <= 0) { demoTimer = 1.4 + Math.random() * 2.4; fakeEvent(); }
+    if (demoTimer <= 0) { demoTimer = 1.0 + Math.random() * 2.0; fakeEvent(); }
   }
 
   updateHud();
@@ -428,6 +532,16 @@ function drawBackground() {
   g.addColorStop(0, '#04061a'); g.addColorStop(0.55, '#14205a'); g.addColorStop(1, '#5a3a8c');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, horizon + 2);
 
+  // nebulosas
+  function neb(x, y, r, col) {
+    var ng = ctx.createRadialGradient(x, y, 0, x, y, r);
+    ng.addColorStop(0, col); ng.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = ng; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  neb(W * 0.35, horizon * 0.45, W * 0.45, 'rgba(120,70,200,.22)');
+  neb(W * 0.85, horizon * 0.25, W * 0.4, 'rgba(60,170,220,.16)');
+  neb(W * 0.1, horizon * 0.8, W * 0.35, 'rgba(220,80,160,.14)');
+
   for (var i = 0; i < stars.length; i++) {
     var s = stars[i];
     ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(time * 1.3 + s.p));
@@ -435,6 +549,23 @@ function drawBackground() {
     ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.283); ctx.fill();
   }
   ctx.globalAlpha = 1;
+
+  // planeta con anillo
+  var px = W * 0.80, py = horizon * 0.40, pr = Math.min(W, H) * 0.075;
+  ctx.strokeStyle = 'rgba(230,190,140,.55)'; ctx.lineWidth = pr * 0.16;
+  ctx.beginPath(); ctx.ellipse(px, py, pr * 1.9, pr * 0.5, -0.35, Math.PI, 6.283); ctx.stroke();
+  var pg = ctx.createRadialGradient(px - pr * 0.4, py - pr * 0.4, pr * 0.1, px, py, pr);
+  pg.addColorStop(0, '#ffd9a0'); pg.addColorStop(0.55, '#d98a4e'); pg.addColorStop(1, '#6a3a52');
+  ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(px, py, pr, 0, 6.283); ctx.fill();
+  ctx.fillStyle = 'rgba(120,60,50,.25)'; ctx.beginPath(); ctx.ellipse(px, py + pr * 0.1, pr, pr * 0.16, -0.2, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = 'rgba(240,200,150,.7)'; ctx.lineWidth = pr * 0.16;
+  ctx.beginPath(); ctx.ellipse(px, py, pr * 1.9, pr * 0.5, -0.35, 0, Math.PI); ctx.stroke();
+
+  // planeta azul chico
+  var bx = W * 0.52, by = horizon * 0.16, br = Math.min(W, H) * 0.03;
+  var bg2 = ctx.createRadialGradient(bx - br * 0.3, by - br * 0.3, br * 0.1, bx, by, br);
+  bg2.addColorStop(0, '#9ad4ff'); bg2.addColorStop(1, '#2a4a9a');
+  ctx.fillStyle = bg2; ctx.beginPath(); ctx.arc(bx, by, br, 0, 6.283); ctx.fill();
 
   // luna
   var mx = W * 0.2, my = horizon * 0.42, mr = Math.min(W, H) * 0.07;
@@ -448,6 +579,25 @@ function drawBackground() {
   ctx.beginPath(); ctx.arc(mx + mr * 0.3, my + mr * 0.15, mr * 0.2, 0, 6.283); ctx.fill();
   ctx.beginPath(); ctx.arc(mx - mr * 0.35, my - mr * 0.25, mr * 0.13, 0, 6.283); ctx.fill();
 
+  // estrella fugaz
+  if (shoot.on) {
+    var sa = 1 - shoot.life / 0.9;
+    var sg = ctx.createLinearGradient(shoot.x, shoot.y, shoot.x - shoot.vx * 0.18, shoot.y - shoot.vy * 0.18);
+    sg.addColorStop(0, 'rgba(255,255,255,' + sa + ')'); sg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = sg; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(shoot.x, shoot.y); ctx.lineTo(shoot.x - shoot.vx * 0.18, shoot.y - shoot.vy * 0.18); ctx.stroke();
+  }
+
+  // nave espacial lejana (OVNI) y satelite
+  var ux = ((time * 16) % (W + 120)) - 60, uy = horizon * 0.62 + Math.sin(time * 1.4) * 5;
+  ctx.fillStyle = 'rgba(160,240,200,.18)'; ctx.beginPath(); ctx.ellipse(ux, uy + 4, 22, 5, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#8f9bd0'; ctx.beginPath(); ctx.ellipse(ux, uy, 15, 4.5, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#c8f5ff'; ctx.beginPath(); ctx.ellipse(ux, uy - 3, 7, 4.5, 0, Math.PI, 6.283); ctx.fill();
+  for (var ul = -1; ul <= 1; ul++) { ctx.fillStyle = (Math.floor(time * 3) + ul) % 2 ? '#ffe27a' : '#ff6a8a'; ctx.beginPath(); ctx.arc(ux + ul * 8, uy + 0.5, 1.4, 0, 6.283); ctx.fill(); }
+  var sx2 = W - (((time * 7) % (W + 80)) - 40), sy2 = horizon * 0.3;
+  ctx.fillStyle = '#cfd6ff'; ctx.fillRect(sx2 - 3, sy2 - 2, 6, 4);
+  ctx.fillStyle = '#4a6ad8'; ctx.fillRect(sx2 - 11, sy2 - 1.5, 7, 3); ctx.fillRect(sx2 + 4, sy2 - 1.5, 7, 3);
+
   // montañas lejanas (2 capas)
   function mount(arr, col) {
     ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, horizon + 1);
@@ -456,12 +606,26 @@ function drawBackground() {
   }
   mount(mountA, '#2a2f6b'); mount(mountB, '#1c2150');
 
+  // base espacial en el horizonte
+  for (var b = 0; b < skyline.length; b++) {
+    var sb = skyline[b];
+    ctx.fillStyle = '#141941'; ctx.fillRect(sb.x, horizon - sb.h, sb.w, sb.h + 1);
+    ctx.fillStyle = '#1d2358'; ctx.fillRect(sb.x, horizon - sb.h, sb.w * 0.35, sb.h + 1);
+    if (sb.ant) { ctx.strokeStyle = '#3a4486'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sb.x + sb.w / 2, horizon - sb.h); ctx.lineTo(sb.x + sb.w / 2, horizon - sb.h - 9); ctx.stroke();
+      ctx.fillStyle = Math.floor(time * 2 + sb.x) % 2 ? '#ff5468' : '#552030'; ctx.beginPath(); ctx.arc(sb.x + sb.w / 2, horizon - sb.h - 9, 1.5, 0, 6.283); ctx.fill(); }
+    for (var w2 = 0; w2 < sb.wins.length; w2++) {
+      var wn = sb.wins[w2];
+      ctx.fillStyle = Math.sin(time * 0.6 + wn.p) > -0.6 ? 'rgba(255,226,130,.85)' : 'rgba(255,226,130,.15)';
+      ctx.fillRect(sb.x + wn.x, horizon - sb.h + wn.y, 2, 3);
+    }
+  }
+
   // suelo con perspectiva
   var gg = ctx.createLinearGradient(0, horizon, 0, H);
   gg.addColorStop(0, '#2a3270'); gg.addColorStop(0.35, '#1a2158'); gg.addColorStop(1, '#0b0f30');
   ctx.fillStyle = gg; ctx.fillRect(0, horizon, W, H - horizon);
 
-  ctx.strokeStyle = 'rgba(140,160,255,.16)'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(140,160,255,.14)'; ctx.lineWidth = 1;
   var vx = W * 0.5;
   for (var kx = -14; kx <= 14; kx++) {
     ctx.beginPath(); ctx.moveTo(vx + kx * 4, horizon); ctx.lineTo(vx + kx * W * 0.2, H); ctx.stroke();
@@ -474,29 +638,136 @@ function drawBackground() {
   }
   ctx.globalAlpha = 1;
 
+  // crateres
+  for (var cr = 0; cr < craters.length; cr++) {
+    var c = craters[cr], sc = depthScale(c.y), rr2 = c.r * sc;
+    ctx.fillStyle = 'rgba(5,8,30,.45)'; ell(c.x, c.y, rr2, rr2 * 0.32); ctx.fill();
+    ctx.strokeStyle = 'rgba(150,165,255,.28)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(c.x, c.y, rr2, rr2 * 0.32, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+  }
+
   // resplandor del horizonte
   var hg = ctx.createLinearGradient(0, horizon - 40, 0, horizon + 30);
   hg.addColorStop(0, 'rgba(150,100,230,0)'); hg.addColorStop(0.55, 'rgba(160,120,255,.28)'); hg.addColorStop(1, 'rgba(160,120,255,0)');
   ctx.fillStyle = hg; ctx.fillRect(0, horizon - 40, W, 70);
 }
 
-/* ============ dibujo: plataforma y torre ============ */
-function drawPad() {
-  var x = rocketX, y = rocketBase + padRy * 0.2, rx = padRx, ry = padRy, th = ry * 0.9;
+/* ============ dibujo: decoraciones del mapa ============ */
+function drawDeco(e) {
+  var u = Math.min(W, H) * 0.05 * depthScale(e.y) * e.s, x = e.x, y = e.y, g;
+  var kind = e.kind;
+  if (kind === 'rock') {
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ell(x + u * 0.2, y + u * 0.05, u * 1.3 * e.k, u * 0.35 * e.k); ctx.fill();
+    g = ctx.createLinearGradient(x - u, 0, x + u, 0); g.addColorStop(0, '#7a86c0'); g.addColorStop(0.5, '#4a5490'); g.addColorStop(1, '#262d5c');
+    ctx.fillStyle = g; ctx.beginPath();
+    ctx.moveTo(x - u * 1.1 * e.k, y); ctx.lineTo(x - u * 0.85 * e.k, y - u * 0.75 * e.k); ctx.lineTo(x - u * 0.2 * e.k, y - u * 1.15 * e.k);
+    ctx.lineTo(x + u * 0.55 * e.k, y - u * 0.95 * e.k); ctx.lineTo(x + u * 1.05 * e.k, y - u * 0.3 * e.k); ctx.lineTo(x + u * 1.15 * e.k, y); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,215,255,.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - u * 0.85 * e.k, y - u * 0.75 * e.k); ctx.lineTo(x - u * 0.2 * e.k, y - u * 1.15 * e.k); ctx.lineTo(x + u * 0.55 * e.k, y - u * 0.95 * e.k); ctx.stroke();
+  } else if (kind === 'crystal') {
+    var col = 'hsl(' + e.hue + ',90%,65%)', glowC = 'hsla(' + e.hue + ',95%,65%,' + (0.22 + 0.1 * Math.sin(time * 2 + e.seed)) + ')';
+    var cg = ctx.createRadialGradient(x, y - u * 0.8, 0, x, y - u * 0.8, u * 2.6);
+    cg.addColorStop(0, glowC); cg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = cg; ctx.fillRect(x - u * 2.6, y - u * 3.4, u * 5.2, u * 5.2);
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ell(x, y + u * 0.04, u * 1.1, u * 0.3); ctx.fill();
+    var sh = [[-0.55, 1.5, 0.32], [0.05, 2.2, 0.4], [0.62, 1.2, 0.3]];
+    for (var i = 0; i < 3; i++) {
+      var cx = x + sh[i][0] * u, hh = sh[i][1] * u * e.k, ww = sh[i][2] * u;
+      var cg2 = ctx.createLinearGradient(cx - ww, 0, cx + ww, 0);
+      cg2.addColorStop(0, 'hsl(' + e.hue + ',90%,80%)'); cg2.addColorStop(0.5, col); cg2.addColorStop(1, 'hsl(' + e.hue + ',80%,38%)');
+      ctx.fillStyle = cg2; ctx.beginPath(); ctx.moveTo(cx - ww, y); ctx.lineTo(cx - ww * 0.8, y - hh * 0.75); ctx.lineTo(cx, y - hh); ctx.lineTo(cx + ww * 0.8, y - hh * 0.75); ctx.lineTo(cx + ww, y); ctx.closePath(); ctx.fill();
+    }
+  } else if (kind === 'lamp') {
+    ctx.fillStyle = 'rgba(255,230,140,.10)'; ell(x, y + u * 0.05, u * 2.4, u * 0.7); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ell(x, y + u * 0.04, u * 0.5, u * 0.15); ctx.fill();
+    ctx.fillStyle = '#4a5490'; ctx.fillRect(x - u * 0.09, y - u * 3.1, u * 0.18, u * 3.1);
+    ctx.fillStyle = '#6672b0'; rr(x - u * 0.28, y - u * 0.3, u * 0.56, u * 0.3, u * 0.1); ctx.fill();
+    var lg = ctx.createRadialGradient(x, y - u * 3.2, 0, x, y - u * 3.2, u * 1.8);
+    lg.addColorStop(0, 'rgba(255,235,150,.75)'); lg.addColorStop(1, 'rgba(255,235,150,0)');
+    ctx.fillStyle = lg; ctx.fillRect(x - u * 1.8, y - u * 5, u * 3.6, u * 3.6);
+    ctx.fillStyle = '#fff6c8'; ctx.beginPath(); ctx.arc(x, y - u * 3.2, u * 0.26, 0, 6.283); ctx.fill();
+  } else if (kind === 'tank') {
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ell(x + u * 0.2, y + u * 0.05, u * 1.2, u * 0.34); ctx.fill();
+    g = ctx.createLinearGradient(x - u * 0.9, 0, x + u * 0.9, 0); g.addColorStop(0, '#9aa6d6'); g.addColorStop(0.35, '#e8ecfa'); g.addColorStop(1, '#5a6694');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x - u * 0.9, y - u * 0.3); ctx.lineTo(x - u * 0.9, y - u * 2.1); ctx.ellipse(x, y - u * 2.1, u * 0.9, u * 0.28, 0, Math.PI, 0, false);
+    ctx.lineTo(x + u * 0.9, y - u * 0.3); ctx.ellipse(x, y - u * 0.3, u * 0.9, u * 0.28, 0, 0, Math.PI, false); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#e24a5a'; ctx.fillRect(x - u * 0.9, y - u * 1.4, u * 1.8, u * 0.26);
+    ctx.fillStyle = '#c9d2f5'; ell(x, y - u * 2.1, u * 0.9, u * 0.28); ctx.fill();
+  } else if (kind === 'dish') {
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ell(x, y + u * 0.04, u * 0.7, u * 0.2); ctx.fill();
+    ctx.fillStyle = '#6672b0'; ctx.fillRect(x - u * 0.1, y - u * 1.8, u * 0.2, u * 1.8);
+    var ang = Math.sin(time * 0.5 + e.seed) * 0.5;
+    ctx.save(); ctx.translate(x, y - u * 1.8); ctx.rotate(-0.6 + ang);
+    var dg = ctx.createLinearGradient(-u, 0, u, 0); dg.addColorStop(0, '#d8def8'); dg.addColorStop(1, '#7a86b8');
+    ctx.fillStyle = dg; ctx.beginPath(); ctx.ellipse(0, 0, u * 1.05, u * 0.4, 0, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = '#4a5490'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -u * 0.9); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = Math.floor(time * 2 + e.seed) % 2 ? '#ff5468' : '#4a1a26'; ctx.beginPath(); ctx.arc(x, y - u * 1.85, u * 0.12, 0, 6.283); ctx.fill();
+  } else if (kind === 'flag') {
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ell(x, y + u * 0.04, u * 0.5, u * 0.15); ctx.fill();
+    ctx.strokeStyle = '#cfd6ff'; ctx.lineWidth = Math.max(1.5, u * 0.1); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - u * 3); ctx.stroke();
+    ctx.fillStyle = e.hue < 250 ? '#ff5468' : '#5b8cff'; ctx.beginPath(); ctx.moveTo(x, y - u * 3);
+    for (var f = 0; f <= 6; f++) ctx.lineTo(x + f / 6 * u * 1.5, y - u * 3 + Math.sin(time * 4 + f * 0.9 + e.seed) * u * 0.1);
+    for (var f2 = 6; f2 >= 0; f2--) ctx.lineTo(x + f2 / 6 * u * 1.5, y - u * 2.3 + Math.sin(time * 4 + f2 * 0.9 + e.seed) * u * 0.1);
+    ctx.closePath(); ctx.fill();
+  } else if (kind === 'crates') {
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ell(x + u * 0.3, y + u * 0.04, u * 1.5, u * 0.38); ctx.fill();
+    function box(bx, by, s) {
+      ctx.fillStyle = '#a8742f'; ctx.fillRect(bx - s, by - s * 1.5, s * 1.4, s * 1.5);
+      ctx.fillStyle = '#7a4f1c'; ctx.beginPath(); ctx.moveTo(bx + s * 0.4, by - s * 1.5); ctx.lineTo(bx + s * 0.9, by - s * 1.2); ctx.lineTo(bx + s * 0.9, by - s * 0.0); ctx.lineTo(bx + s * 0.4, by); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c99048'; ctx.beginPath(); ctx.moveTo(bx - s, by - s * 1.5); ctx.lineTo(bx - s * 0.5, by - s * 1.8); ctx.lineTo(bx + s * 0.9, by - s * 1.2 - s * 0.3); ctx.lineTo(bx + s * 0.4, by - s * 1.5); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(60,35,10,.7)'; ctx.lineWidth = 1; ctx.strokeRect(bx - s, by - s * 1.5, s * 1.4, s * 1.5);
+    }
+    box(x - u * 0.2, y, u * 0.75); box(x + u * 0.9, y + u * 0.02, u * 0.6); box(x + u * 0.15, y - u * 1.1, u * 0.6);
+  } else if (kind === 'plant') {
+    var sway = Math.sin(time * 1.6 + e.seed) * u * 0.25;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ell(x, y + u * 0.04, u * 0.6, u * 0.16); ctx.fill();
+    ctx.strokeStyle = '#3ad3a0'; ctx.lineWidth = Math.max(2, u * 0.16); ctx.lineCap = 'round';
+    for (var s2 = -1; s2 <= 1; s2++) {
+      ctx.beginPath(); ctx.moveTo(x + s2 * u * 0.2, y); ctx.quadraticCurveTo(x + s2 * u * 0.6 + sway, y - u * 1.2, x + s2 * u * 0.9 + sway * 1.4, y - u * (1.8 + 0.4 * (s2 === 0)));
+      ctx.stroke();
+      ctx.fillStyle = 'hsla(' + e.hue + ',95%,72%,' + (0.7 + 0.3 * Math.sin(time * 3 + s2 + e.seed)) + ')';
+      ctx.beginPath(); ctx.arc(x + s2 * u * 0.9 + sway * 1.4, y - u * (1.8 + 0.4 * (s2 === 0)), u * 0.22, 0, 6.283); ctx.fill();
+    }
+    ctx.lineCap = 'butt';
+  } else if (kind === 'rover') {
+    var rx = x, ry = y, ru = u * 0.9, dr = e.dir;
+    ctx.fillStyle = 'rgba(0,0,0,.32)'; ell(rx, ry + ru * 0.05, ru * 1.7, ru * 0.4); ctx.fill();
+    // haz del faro
+    var fg = ctx.createLinearGradient(rx + dr * ru, 0, rx + dr * ru * 4, 0);
+    fg.addColorStop(0, 'rgba(255,240,170,.35)'); fg.addColorStop(1, 'rgba(255,240,170,0)');
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.moveTo(rx + dr * ru * 1.3, ry - ru * 0.7); ctx.lineTo(rx + dr * ru * 4.2, ry - ru * 1.3); ctx.lineTo(rx + dr * ru * 4.2, ry + ru * 0.1); ctx.lineTo(rx + dr * ru * 1.3, ry - ru * 0.3); ctx.closePath(); ctx.fill();
+    // ruedas
+    for (var w = -1; w <= 1; w += 2) {
+      var wx = rx + w * ru * 0.95, wy = ry - ru * 0.3;
+      ctx.fillStyle = '#20264a'; ctx.beginPath(); ctx.arc(wx, wy, ru * 0.42, 0, 6.283); ctx.fill();
+      ctx.strokeStyle = '#8f9bd0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(wx, wy, ru * 0.28, 0, 6.283); ctx.stroke();
+      var ra = time * 6 * dr; ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + Math.cos(ra) * ru * 0.28, wy + Math.sin(ra) * ru * 0.28); ctx.stroke();
+    }
+    g = ctx.createLinearGradient(0, ry - ru * 1.6, 0, ry - ru * 0.5); g.addColorStop(0, '#ffd25a'); g.addColorStop(1, '#d6902a');
+    ctx.fillStyle = g; rr(rx - ru * 1.4, ry - ru * 1.1, ru * 2.8, ru * 0.8, ru * 0.25); ctx.fill();
+    ctx.fillStyle = '#8fd6ff'; rr(rx - dr * ru * 0.2 - ru * 0.5 + (dr > 0 ? ru * 0.3 : -ru * 0.3), ry - ru * 1.75, ru * 1.0, ru * 0.7, ru * 0.2); ctx.fill();
+    ctx.strokeStyle = '#cfd6ff'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(rx - dr * ru * 1.1, ry - ru * 1.1); ctx.lineTo(rx - dr * ru * 1.1, ry - ru * 2.1); ctx.stroke();
+    ctx.fillStyle = Math.floor(time * 3) % 2 ? '#ff5468' : '#4a1a26'; ctx.beginPath(); ctx.arc(rx - dr * ru * 1.1, ry - ru * 2.1, ru * 0.12, 0, 6.283); ctx.fill();
+  }
+}
 
-  // torre de lanzamiento (detras del cohete)
-  var tx = x - rocketW * 1.75, th2 = rocketH * 0.92, tw = rocketW * 0.32;
+/* ============ dibujo: plataforma y torre ============ */
+function drawPad(R) {
+  var x = R.x, y = R.base + R.padRy * 0.2, rx = R.padRx, ry = R.padRy, th = ry * 0.9;
+
+  // torre de lanzamiento (detras del cohete, a la derecha)
+  var tx = x + rx * 0.82, th2 = R.h * 0.92, tw = R.w * 0.32;
   ctx.strokeStyle = '#4a5690'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(tx, rocketBase); ctx.lineTo(tx, rocketBase - th2); ctx.moveTo(tx + tw, rocketBase); ctx.lineTo(tx + tw, rocketBase - th2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tx, R.base); ctx.lineTo(tx, R.base - th2); ctx.moveTo(tx + tw, R.base); ctx.lineTo(tx + tw, R.base - th2); ctx.stroke();
   ctx.lineWidth = 1.2;
   var segs = 9;
   for (var i = 0; i < segs; i++) {
-    var y0 = rocketBase - th2 * (i / segs), y1 = rocketBase - th2 * ((i + 1) / segs);
+    var y0 = R.base - th2 * (i / segs), y1 = R.base - th2 * ((i + 1) / segs);
     ctx.beginPath(); ctx.moveTo(tx, y0); ctx.lineTo(tx + tw, y1); ctx.moveTo(tx + tw, y0); ctx.lineTo(tx, y1); ctx.moveTo(tx, y1); ctx.lineTo(tx + tw, y1); ctx.stroke();
   }
   ctx.lineWidth = 3; ctx.strokeStyle = '#6a77b8';
-  ctx.beginPath(); ctx.moveTo(tx + tw, rocketBase - th2 * 0.62); ctx.lineTo(x - rocketW * 0.5, rocketBase - th2 * 0.62); ctx.stroke();
-  ctx.fillStyle = '#ff4d5e'; ctx.beginPath(); ctx.arc(tx + tw / 2, rocketBase - th2 - 4, 3 + Math.sin(time * 5) * 0.8, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(tx, R.base - th2 * 0.62); ctx.lineTo(x + R.w * 0.5, R.base - th2 * 0.62); ctx.stroke();
+  ctx.fillStyle = '#ff4d5e'; ctx.beginPath(); ctx.arc(tx + tw / 2, R.base - th2 - 4, 3 + Math.sin(time * 5 + R.i) * 0.8, 0, 6.283); ctx.fill();
 
   // sombra
   ctx.fillStyle = 'rgba(0,0,0,.35)';
@@ -556,20 +827,25 @@ function drawHeadIn(c, cx, cy, r) {
   }
 }
 
-function drawRocket() {
-  var R = rocket;
+var THEMES = [
+  { nose: ['#a21c2c', '#ff6070', '#d93046', '#7a1020'], finL: ['#9c1f2e', '#d43347'], finR: ['#b32538', '#6e1220'] },
+  { nose: ['#1c3aa2', '#6088ff', '#3050d9', '#10207a'], finL: ['#1f3a9c', '#3358d4'], finR: ['#2540b3', '#122070'] }
+];
+
+function drawRocket(R) {
+  if (R.state === 'away') return;
+  var th = THEMES[R.i % THEMES.length];
   var shake = 0;
   if (R.state === 'countdown') shake = Math.sin(time * 70) * 1.5;
-  else if (R.state === 'launch' && R.alt < rocketH) shake = Math.sin(time * 80) * 2.5;
-  var x = rocketX + shake, h = rocketH, w = rocketW, bw = w / 2;
-  var base = rocketBase - R.alt;
-  if (R.state === 'away') return;
+  else if (R.state === 'launch' && R.alt < R.h) shake = Math.sin(time * 80) * 2.5;
+  var x = R.x + shake, h = R.h, w = R.w, bw = w / 2;
+  var base = R.base - R.alt;
 
   // sombra en el suelo que se achica con la altura
-  var sh = clamp(1 - R.alt / (rocketBase + 80), 0, 1);
+  var sh = clamp(1 - R.alt / (R.base + 80), 0, 1);
   if (sh > 0.02) {
     ctx.fillStyle = 'rgba(0,0,0,' + (0.3 * sh) + ')';
-    ctx.beginPath(); ctx.ellipse(rocketX + 6, rocketBase + padRy * 0.35, bw * 1.3 * sh, bw * 0.38 * sh, 0, 0, 6.283); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(R.x + 6, R.base + R.padRy * 0.35, bw * 1.3 * sh, bw * 0.38 * sh, 0, 0, 6.283); ctx.fill();
   }
 
   var nozH = h * 0.07, noseH = h * 0.28;
@@ -578,7 +854,7 @@ function drawRocket() {
   // llama
   if (R.state === 'launch') drawFlame(x, base - 2, h * (0.55 + Math.min(R.vel / 900, 0.7)), bw * 0.7);
   else if (R.state === 'countdown') drawFlame(x, base - 2, h * 0.16 * (1 + (3.99 - R.cd) * 0.25), bw * 0.4);
-  else if (R.state === 'arriving') drawFlame(x, base - 2, h * 0.38, bw * 0.55);
+  else if (R.state === 'arriving' && R.arriveT > 0) drawFlame(x, base - 2, h * 0.38, bw * 0.55);
 
   // aletas
   function fin(side, col1, col2) {
@@ -589,7 +865,7 @@ function drawRocket() {
     ctx.moveTo(sx, yb - h * 0.30); ctx.quadraticCurveTo(sx + side * bw * 0.95, yb - h * 0.12, sx + side * bw * 1.0, base + h * 0.01);
     ctx.lineTo(sx, yb + 2); ctx.closePath(); ctx.fill();
   }
-  fin(-1, '#9c1f2e', '#d43347'); fin(1, '#b32538', '#6e1220');
+  fin(-1, th.finL[0], th.finL[1]); fin(1, th.finR[0], th.finR[1]);
 
   // tobera
   var ng = ctx.createLinearGradient(x - bw * 0.5, 0, x + bw * 0.5, 0);
@@ -612,28 +888,30 @@ function drawRocket() {
   bodyPath(); ctx.fillStyle = bg; ctx.fill();
 
   ctx.save(); bodyPath(); ctx.clip();
-  // punta roja
   var ng2 = ctx.createLinearGradient(x - bw, 0, x + bw, 0);
-  ng2.addColorStop(0, '#a21c2c'); ng2.addColorStop(0.25, '#ff6070'); ng2.addColorStop(0.6, '#d93046'); ng2.addColorStop(1, '#7a1020');
+  ng2.addColorStop(0, th.nose[0]); ng2.addColorStop(0.25, th.nose[1]); ng2.addColorStop(0.6, th.nose[2]); ng2.addColorStop(1, th.nose[3]);
   ctx.fillStyle = ng2; ctx.fillRect(x - bw - 2, yTop - 2, w + 4, noseH * 0.72);
-  // franjas
   var bh = yb - yn;
   ctx.fillStyle = ng2; ctx.fillRect(x - bw - 2, yn + bh * 0.9, w + 4, bh * 0.09);
   ctx.fillStyle = 'rgba(30,40,90,.35)'; ctx.fillRect(x - bw - 2, yn + bh * 0.84, w + 4, bh * 0.025);
-  // brillo vertical
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(x - bw * 0.62, yTop, bw * 0.12, h);
-  // puerta
   ctx.restore();
 
-  // ojos de buey con pasajeros
+  // numero del cohete en el cuerpo
+  ctx.fillStyle = 'rgba(30,40,100,.55)'; ctx.font = '900 ' + Math.round(bw * 0.7) + 'px system-ui,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(R.i + 1), x + bw * 0.05, yn + bh * 0.82);
+
+  // ojos de buey con los ultimos pasajeros
   var np = Math.min(Math.max(cfg.seats, 1), 4), pr = Math.min(bw * 0.42, bh / (np + 1) * 0.46);
+  var off = Math.max(0, R.seated.length - np);
   for (var i = 0; i < np; i++) {
-    var py = yn + bh * 0.07 + (bh * 0.72) * ((i + 0.5) / np);
+    var py = yn + bh * 0.07 + (bh * 0.72) * ((i + 0.5) / np) - bh * 0.03;
     var rg = ctx.createLinearGradient(x - pr, py - pr, x + pr, py + pr);
     rg.addColorStop(0, '#f4f6ff'); rg.addColorStop(1, '#6a769c');
     ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, py, pr * 1.18, 0, 6.283); ctx.fill();
     ctx.fillStyle = '#0a1a3a'; ctx.beginPath(); ctx.arc(x, py, pr, 0, 6.283); ctx.fill();
-    var pass = R.seated[i];
+    var pass = R.seated[off + i];
     if (pass) drawHeadIn(pass, x, py, pr * 0.92);
     var gl = ctx.createLinearGradient(x - pr, py - pr, x + pr, py + pr);
     gl.addColorStop(0, 'rgba(160,210,255,.55)'); gl.addColorStop(0.5, 'rgba(160,210,255,.08)'); gl.addColorStop(1, 'rgba(160,210,255,.25)');
@@ -644,9 +922,9 @@ function drawRocket() {
   // puerta de embarque (base)
   if (R.alt < 2) {
     ctx.fillStyle = '#1a2250'; ctx.beginPath();
-    ctx.moveTo(door.x - bw * 0.3, rocketBase + 2); ctx.lineTo(door.x - bw * 0.3, rocketBase - h * 0.07);
-    ctx.quadraticCurveTo(door.x, rocketBase - h * 0.13, door.x + bw * 0.3, rocketBase - h * 0.07);
-    ctx.lineTo(door.x + bw * 0.3, rocketBase + 2); ctx.closePath(); ctx.fill();
+    ctx.moveTo(R.door.x - bw * 0.3, R.base + 2); ctx.lineTo(R.door.x - bw * 0.3, R.base - h * 0.07);
+    ctx.quadraticCurveTo(R.door.x, R.base - h * 0.13, R.door.x + bw * 0.3, R.base - h * 0.07);
+    ctx.lineTo(R.door.x + bw * 0.3, R.base + 2); ctx.closePath(); ctx.fill();
   }
 
   // cuenta regresiva del lanzamiento
@@ -654,11 +932,12 @@ function drawRocket() {
     var n = Math.ceil(R.cd);
     if (n >= 1) {
       var frac = 1 - (R.cd - Math.floor(R.cd));
+      var ny = Math.max(70, R.base - R.h * 1.12);
       ctx.save(); ctx.globalAlpha = 1 - frac * 0.5;
-      ctx.font = '900 ' + Math.round(h * 0.5 * (1 + frac * 0.25)) + 'px system-ui,sans-serif';
+      ctx.font = '900 ' + Math.round(h * 0.42 * (1 + frac * 0.25)) + 'px system-ui,sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(String(n), W * 0.5, H * 0.2);
-      ctx.fillStyle = '#ffdf6b'; ctx.fillText(String(n), W * 0.5, H * 0.2);
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.strokeText(String(n), R.x, ny);
+      ctx.fillStyle = '#ffdf6b'; ctx.fillText(String(n), R.x, ny);
       ctx.restore();
     }
   }
@@ -673,51 +952,40 @@ function drawChar(c) {
   var suit = 'hsl(' + c.hue + ',68%,52%)', dark = 'hsl(' + c.hue + ',68%,34%)', light = 'hsl(' + c.hue + ',80%,72%)';
   ctx.save(); ctx.globalAlpha = clamp(c.alpha, 0, 1);
 
-  // sombra
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.05, u * 1.0, u * 0.3, 0, 0, 6.283); ctx.fill();
 
   var by = y - bob;
-  // mochila
   ctx.fillStyle = '#39406e'; rr(x + u * 0.5, by - u * 2.05, u * 0.62, u * 1.1, u * 0.2); ctx.fill();
-  // piernas
   ctx.fillStyle = dark;
   rr(x - u * 0.62 + sw * 0.4, by - u * 0.72, u * 0.5, u * 0.72, u * 0.2); ctx.fill();
   rr(x + u * 0.12 - sw * 0.4, by - u * 0.72, u * 0.5, u * 0.72, u * 0.2); ctx.fill();
   ctx.fillStyle = '#20264a';
   rr(x - u * 0.68 + sw * 0.4, by - u * 0.2, u * 0.62, u * 0.26, u * 0.12); ctx.fill();
   rr(x + u * 0.06 - sw * 0.4, by - u * 0.2, u * 0.62, u * 0.26, u * 0.12); ctx.fill();
-  // brazo trasero
   ctx.fillStyle = dark; rr(x + u * 0.62, by - u * 1.95 - sw * 0.2, u * 0.4, u * 1.0, u * 0.2); ctx.fill();
-  // cuerpo con sombreado
   var bg = ctx.createLinearGradient(x - u * 0.8, 0, x + u * 0.8, 0);
   bg.addColorStop(0, light); bg.addColorStop(0.45, suit); bg.addColorStop(1, dark);
   ctx.fillStyle = bg; rr(x - u * 0.78, by - u * 2.15, u * 1.56, u * 1.6, u * 0.45); ctx.fill();
-  // panel del pecho / insignia segun skin
   ctx.fillStyle = 'rgba(255,255,255,.85)';
   if (c.style === 0) { ctx.beginPath(); ctx.arc(x, by - u * 1.5, u * 0.22, 0, 6.283); ctx.fill(); }
   else if (c.style === 1) { rr(x - u * 0.4, by - u * 1.65, u * 0.8, u * 0.22, u * 0.1); ctx.fill(); }
   else if (c.style === 2) { ctx.beginPath(); ctx.moveTo(x, by - u * 1.75); ctx.lineTo(x + u * 0.25, by - u * 1.3); ctx.lineTo(x - u * 0.25, by - u * 1.3); ctx.closePath(); ctx.fill(); }
   else if (c.style === 3) { ctx.fillStyle = '#ffd25a'; ctx.beginPath(); ctx.arc(x, by - u * 1.5, u * 0.26, 0, 6.283); ctx.fill(); }
   else { rr(x - u * 0.5, by - u * 1.7, u * 0.25, u * 0.5, u * 0.08); ctx.fill(); rr(x + u * 0.25, by - u * 1.7, u * 0.25, u * 0.5, u * 0.08); ctx.fill(); }
-  // brazo delantero
   ctx.fillStyle = suit; rr(x - u * 1.02, by - u * 1.95 + sw * 0.2, u * 0.4, u * 1.0, u * 0.2); ctx.fill();
 
-  // casco
   var hy = by - u * 2.95, hr = u * 1.02;
   var hg = ctx.createRadialGradient(x - hr * 0.35, hy - hr * 0.35, hr * 0.1, x, hy, hr * 1.1);
   hg.addColorStop(0, '#ffffff'); hg.addColorStop(1, '#aeb8dc');
   ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(x, hy, hr, 0, 6.283); ctx.fill();
   ctx.strokeStyle = suit; ctx.lineWidth = Math.max(1.5, u * 0.14); ctx.beginPath(); ctx.arc(x, hy, hr, 0, 6.283); ctx.stroke();
   drawHeadIn(c, x, hy, hr * 0.78);
-  // brillo del vidrio
   ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(x - hr * 0.3, hy - hr * 0.42, hr * 0.38, hr * 0.17, -0.6, 0, 6.283); ctx.fill();
-  // accesorios
   if (c.style === 0) { ctx.strokeStyle = '#cfd6ff'; ctx.lineWidth = Math.max(1, u * 0.1); ctx.beginPath(); ctx.moveTo(x, hy - hr); ctx.lineTo(x, hy - hr - u * 0.55); ctx.stroke(); ctx.fillStyle = '#ff5468'; ctx.beginPath(); ctx.arc(x, hy - hr - u * 0.6, u * 0.2, 0, 6.283); ctx.fill(); }
   else if (c.style === 2) { ctx.fillStyle = suit; ctx.beginPath(); ctx.arc(x, hy - hr * 0.55, hr * 0.95, 3.4, 6.03); ctx.lineTo(x, hy - hr * 0.55); ctx.closePath(); ctx.fill(); }
   else if (c.style === 3) { ctx.strokeStyle = '#222a55'; ctx.lineWidth = Math.max(2, u * 0.2); ctx.beginPath(); ctx.arc(x, hy, hr * 1.02, 3.3, 6.12); ctx.stroke(); ctx.fillStyle = '#222a55'; rr(x - hr * 1.18, hy - hr * 0.2, hr * 0.28, hr * 0.5, 3); ctx.fill(); rr(x + hr * 0.9, hy - hr * 0.2, hr * 0.28, hr * 0.5, 3); ctx.fill(); }
   else if (c.style === 4) { ctx.fillStyle = '#ffd25a'; ctx.beginPath(); ctx.moveTo(x - hr * 0.5, hy - hr * 0.9); ctx.lineTo(x - hr * 0.3, hy - hr * 1.35); ctx.lineTo(x, hy - hr * 1.0); ctx.lineTo(x + hr * 0.3, hy - hr * 1.35); ctx.lineTo(x + hr * 0.5, hy - hr * 0.9); ctx.closePath(); ctx.fill(); }
 
-  // etiqueta con el nombre
   var fs = Math.round(clamp(u * 0.78, 11, 16));
   var label = c.name.length > 11 ? c.name.slice(0, 10) + '…' : c.name;
   if (c.vip) label = '⭐ ' + label;
@@ -728,7 +996,6 @@ function drawChar(c) {
   ctx.strokeStyle = c.vip ? '#ffd25a' : suit; ctx.lineWidth = 1.6; rr(x - tw / 2, ly, tw, th, th / 2); ctx.stroke();
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, ly + th / 2 + 0.5);
 
-  // burbuja de chat
   if (c.bubbleT > 0 && c.bubble) {
     var bt = c.bubble.length > 26 ? c.bubble.slice(0, 25) + '…' : c.bubble;
     var bfs = Math.max(11, fs - 1);
@@ -758,47 +1025,56 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
-function drawRocketInfo() {
-  // texto bajo la plataforma: pasajeros y cuenta del despegue
-  var y = rocketBase + padRy * 1.9;
+function drawRocketInfo(R) {
+  var y = R.base + R.padRy * 1.9;
   var txt = '';
-  if (rocket.state === 'idle' || rocket.state === 'arriving') {
-    txt = rocket.seated.length + '/' + cfg.seats + ' a bordo';
-    if (rocket.timer !== null && rocket.seated.length > 0) txt += ' · despega en ' + fmtTime(rocket.timer);
-    else txt += ' · esperando pasajeros';
-  } else if (rocket.state === 'countdown') txt = '¡Prepárense!';
+  if (R.state === 'idle' || R.state === 'arriving') {
+    txt = '🚀' + (R.i + 1) + ' · ' + R.seated.length + '/' + cfg.seats;
+    if (R.timer !== null && R.seated.length > 0) txt += ' · ' + fmtTime(R.timer);
+    else txt += ' · esperando';
+  } else if (R.state === 'countdown') txt = '🚀' + (R.i + 1) + ' ¡Prepárense!';
   if (!txt) return;
-  ctx.font = '800 13px system-ui,sans-serif';
-  var tw = ctx.measureText(txt).width + 18;
-  ctx.fillStyle = 'rgba(6,10,34,.7)'; rr(rocketX - tw / 2, y, tw, 24, 12); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1; rr(rocketX - tw / 2, y, tw, 24, 12); ctx.stroke();
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, rocketX, y + 12.5);
+  ctx.font = '800 12px system-ui,sans-serif';
+  var tw = ctx.measureText(txt).width + 16;
+  ctx.fillStyle = 'rgba(6,10,34,.7)'; rr(R.x - tw / 2, y, tw, 22, 11); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1; rr(R.x - tw / 2, y, tw, 22, 11); ctx.stroke();
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, R.x, y + 11.5);
 
-  // barra del temporizador
-  if (rocket.timer !== null && rocket.state === 'idle') {
-    var frac = clamp(rocket.timer / cfg.launchSecs, 0, 1);
-    ctx.fillStyle = 'rgba(255,255,255,.15)'; rr(rocketX - tw / 2, y + 28, tw, 5, 3); ctx.fill();
-    ctx.fillStyle = frac < 0.25 ? '#ff5468' : '#7ee0a0'; rr(rocketX - tw / 2, y + 28, Math.max(5, tw * frac), 5, 3); ctx.fill();
+  if (R.timer !== null && R.state === 'idle') {
+    var frac = clamp(R.timer / cfg.launchSecs, 0, 1);
+    ctx.fillStyle = 'rgba(255,255,255,.15)'; rr(R.x - tw / 2, y + 25, tw, 5, 3); ctx.fill();
+    ctx.fillStyle = frac < 0.25 ? '#ff5468' : '#7ee0a0'; rr(R.x - tw / 2, y + 25, Math.max(5, tw * frac), 5, 3); ctx.fill();
   }
 }
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
   drawBackground();
-  drawPad();
-  drawRocket();
-  drawRocketInfo();
-  drawParticles();
-  var vis = queue.concat(rocket.boarding).filter(function (c) { return c.alpha > 0.02; });
-  vis.sort(function (a, b) { return a.y - b.y; });
-  for (var i = 0; i < vis.length; i++) drawChar(vis[i]);
 
-  // aviso si la cola es mas larga que lo visible
-  var hidden = queue.filter(function (c) { return c.targetAlpha === 0; }).length;
+  // decoracion que queda detras de los cohetes
+  var b0 = rockets[0].base;
+  var behind = [], front = [];
+  for (var d = 0; d < deco.length; d++) (deco[d].y < b0 ? behind : front).push(deco[d]);
+  for (var bi = 0; bi < behind.length; bi++) drawDeco(behind[bi]);
+
+  // cohete del fondo primero, luego el de adelante
+  drawPad(rockets[1]); drawRocket(rockets[1]); drawRocketInfo(rockets[1]);
+  drawPad(rockets[0]); drawRocket(rockets[0]); drawRocketInfo(rockets[0]);
+  drawParticles();
+
+  // personajes + decoracion de adelante, ordenados por profundidad
+  var items = [];
+  var chars = queue.concat(boardingAll());
+  for (var i = 0; i < chars.length; i++) if (chars[i].alpha > 0.02) items.push({ y: chars[i].y, c: chars[i] });
+  for (var f = 0; f < front.length; f++) items.push({ y: front[f].y, e: front[f] });
+  items.sort(function (a, b) { return a.y - b.y; });
+  for (var k = 0; k < items.length; k++) { if (items[k].c) drawChar(items[k].c); else drawDeco(items[k].e); }
+
+  var hidden = 0;
+  for (var q = 0; q < queue.length; q++) if (queue[q].targetAlpha === 0) hidden++;
   if (hidden > 0) {
     ctx.font = '800 13px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     var t = '+' + hidden + ' más en la cola', tw = ctx.measureText(t).width + 18;
-    var p = slotPos(999);
     ctx.fillStyle = 'rgba(255,168,43,.92)'; rr(W / 2 - tw / 2, H - 112, tw, 24, 12); ctx.fill();
     ctx.fillStyle = '#2a1a00'; ctx.fillText(t, W / 2, H - 99.5);
   }
@@ -806,26 +1082,38 @@ function draw() {
 
 /* ============ HUD ============ */
 function updateHud() {
+  var total = 0; for (var i = 0; i < rockets.length; i++) total += rockets[i].seated.length;
   $('qChip').textContent = '👥 ' + queue.length;
-  $('bChip').textContent = '🚀 ' + rocket.seated.length + '/' + cfg.seats;
+  $('bChip').textContent = '🚀 ' + total;
 }
 
 function setStatus() {
-  var dot = $('dot'), txt = $('pillText'), sub = $('sub');
+  var dot = $('dot'), txt = $('pillText');
   dot.className = '';
   if (net.live) {
     dot.className = 'live';
     txt.textContent = 'EN VIVO' + (net.user ? ' @' + net.user : '') + (net.viewers ? ' · ' + net.viewers + ' 👁' : '');
-    sub.textContent = '';
-  } else if (net.server) {
-    dot.className = 'wait';
-    txt.textContent = 'Esperando tu live…';
-    sub.textContent = cfg.user ? (net.msg || 'Conectado al servidor. Inicia el live en TikTok y entrará solo.') : 'Falta tu @usuario: toca ⚙️ para ponerlo.';
   } else {
-    txt.textContent = 'Servidor apagado';
-    sub.textContent = 'En Termux ejecuta: cd Coheteapp/server && node server.js  (o prueba con 🤖 Demo)';
+    dot.className = net.server ? 'wait' : '';
+    txt.textContent = 'Sin live';
   }
-  if (demo) { dot.className = 'demo'; txt.textContent = (net.live ? 'EN VIVO + Demo' : 'Modo demo'); }
+  if (demo) { dot.className = 'demo'; txt.textContent = net.live ? 'EN VIVO + Demo' : 'Modo demo'; }
+  paintSettingsStatus();
+}
+
+// El estado del servidor ahora se ve en Ajustes
+function paintSettingsStatus() {
+  var a = $('stServer'), b = $('stLive'), h = $('stHelp');
+  if (!a) return;
+  if (net.server) {
+    a.textContent = '🟢 Servidor conectado'; h.textContent = '';
+  } else {
+    a.textContent = '🔴 Servidor apagado';
+    h.textContent = 'En Termux ejecuta: cd ~/Coheteapp/server && bash iniciar.sh (o usa 🤖 Demo para probar).';
+  }
+  if (net.live) b.textContent = '🔴 EN VIVO' + (net.user ? ' @' + net.user : '') + (net.viewers ? ' · ' + net.viewers + ' espectadores' : '');
+  else if (net.server) b.textContent = '🟠 ' + (cfg.user ? (net.msg || 'Esperando que inicies tu live…') : 'Falta tu @usuario de TikTok');
+  else b.textContent = '⚪ Sin live (servidor apagado)';
 }
 
 /* ============ conexion con el servidor (Termux) ============ */
@@ -849,10 +1137,11 @@ function connectWS() {
 function handleMsg(m) {
   if (!m || !m.type) return;
   if (m.type === 'status') {
+    var was = net.live;
     net.live = !!m.live; if (m.username) net.user = m.username; net.msg = m.message || '';
     if (!net.live) net.viewers = 0;
     setStatus();
-    if (net.live) toast('🔴 Live detectado: @' + (m.username || ''));
+    if (net.live && !was) toast('🔴 Live detectado: @' + (m.username || ''));
   } else if (m.type === 'viewers') { net.viewers = m.count | 0; setStatus(); }
   else if (m.type === 'join') addViewer(m.user, false);
   else if (m.type === 'follow') addViewer(m.user, true, ' te siguió y pasa al frente');
@@ -889,14 +1178,19 @@ $('bDemo').addEventListener('click', function () {
   setStatus();
 });
 $('bGo').addEventListener('click', function () {
-  if (rocket.state !== 'idle') { toast('El cohete aún no está listo'); return; }
-  if (rocket.boarding.length > 0) { toast('Espera: alguien está subiendo'); return; }
-  if (!startCountdown()) toast('Aún no hay pasajeros a bordo');
+  var ready = rockets.filter(function (R) { return R.state === 'idle' && R.seated.length > 0 && R.boarding.length === 0; });
+  if (ready.length === 0) { toast(rockets.some(function (R) { return R.seated.length > 0; }) ? 'Espera: alguien está subiendo' : 'Aún no hay pasajeros a bordo'); return; }
+  // despega el que tiene mas pasajeros
+  ready.sort(function (a, b) { return b.seated.length - a.seated.length; });
+  startCountdown(ready[0]);
 });
 
 function openSettings() {
   $('fUser').value = cfg.user; $('fHost').value = cfg.host; $('fPort').value = cfg.port;
-  $('fSeats').value = cfg.seats; $('fSecs').value = cfg.launchSecs; $('fSound').checked = !!cfg.sound;
+  $('fSeats').value = cfg.seats;
+  $('fMin').value = Math.floor(cfg.launchSecs / 60); $('fSec').value = cfg.launchSecs % 60;
+  $('fSound').checked = !!cfg.sound;
+  paintSettingsStatus();
   $('modal').classList.add('open');
 }
 $('gear').addEventListener('click', openSettings);
@@ -905,31 +1199,34 @@ $('mSave').addEventListener('click', function () {
   cfg.user = $('fUser').value.trim().replace(/^@/, '');
   cfg.host = $('fHost').value.trim() || DEF.host;
   cfg.port = clamp(parseInt($('fPort').value, 10) || DEF.port, 1, 65535);
-  cfg.seats = clamp(parseInt($('fSeats').value, 10) || DEF.seats, 1, 12);
-  cfg.launchSecs = clamp(parseInt($('fSecs').value, 10) || DEF.launchSecs, 10, 600);
+  cfg.seats = clamp(parseInt($('fSeats').value, 10) || DEF.seats, 1, MAX_SEATS);
+  var mins = clamp(parseInt($('fMin').value, 10) || 0, 0, 60), secs = clamp(parseInt($('fSec').value, 10) || 0, 0, 59);
+  cfg.launchSecs = clamp(mins * 60 + secs, MIN_SECS, MAX_SECS);
   cfg.sound = $('fSound').checked;
   saveCfg();
+  // el tiempo nuevo aplica a los cohetes que ya estan contando
+  rockets.forEach(function (R) { if (R.timer !== null && R.state === 'idle') R.timer = Math.min(R.timer, cfg.launchSecs); });
   $('modal').classList.remove('open');
   connectWS(); setStatus(); updateHud();
-  toast('✅ Ajustes guardados');
+  toast('✅ Ajustes guardados: ' + cfg.seats + ' asientos, ' + fmtTime(cfg.launchSecs));
 });
 
 /* ============ arranque ============ */
 resize();
-rocket.alt = rocketBase + rocketH * 1.2;
+rockets.forEach(function (R) { R.alt = R.base + R.h * 1.2; });
 setStatus(); updateHud(); connectWS();
 if (!cfg.user) { try { if (!localStorage.getItem('cohete_seen')) { localStorage.setItem('cohete_seen', '1'); setTimeout(openSettings, 600); } } catch (e) {} }
 
 var last = performance.now();
 function frame(now) {
   var dt = Math.min(0.05, (now - last) / 1000); last = now;
-  try { update(dt); draw(); } catch (e) { /* un fallo de dibujo no debe congelar el juego */ if (window.console) console.error(e); }
+  try { update(dt); draw(); } catch (e) { if (window.console) console.error(e); }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
 // para pruebas desde la consola / depuración
-window.__cohete = { addViewer: addViewer, handleMsg: handleMsg, rocket: rocket, queue: queue };
+window.__cohete = { addViewer: addViewer, handleMsg: handleMsg, rockets: rockets, queue: queue, cfg: cfg };
 })();
 </script>
 </body>

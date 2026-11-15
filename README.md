@@ -5,7 +5,8 @@ Juego para celular (APK) pensado para **TikTok Live**: cuando alguien entra a tu
 - Visual 2.5D (se ve en perspectiva, pero dibujado en 2D): suelo con perspectiva, plataforma, torre, cohete con sombreado y personajes que caminan.
 - Cada espectador recibe un **astronauta** con color y accesorio según su nombre, su **foto de perfil** en el casco y su **nombre** encima.
 - 🎁 Los que mandan regalo o te siguen **pasan al frente** de la cola. Los comentarios salen como globo de texto.
-- Indicador **EN VIVO**: la app detecta si tu live está activo.
+- Indicador **EN VIVO**: la app detecta si tu live está activo. El estado del servidor se ve en **⚙️ Ajustes**.
+- **2 cohetes** y un mapa con base espacial, cristales, torres, antenas y un rover que patrulla.
 - **Modo Demo** y botón **Simular** para probar sin estar en vivo.
 
 ## 1) Conseguir el APK
@@ -42,8 +43,8 @@ Cuando inicies tu live, el indicador cambia a **🔴 EN VIVO** y cada persona qu
 |---|---|
 | Usuario de TikTok | La cuenta que está en vivo |
 | Servidor / Puerto | Por defecto `127.0.0.1` y `8765` |
-| Asientos del cohete | Cuántos suben antes de despegar |
-| Segundos para despegar | Tiempo desde que sube el primero |
+| Asientos por cohete | De 1 a 200. Hay 2 cohetes: se llena el 1 y luego el 2 |
+| Tiempo para despegar | Minutos y segundos (hasta 60:00) desde que sube el primero |
 | Sonidos | Pops y motor |
 
 ## Notas
