@@ -195,7 +195,7 @@ function attempt(s) {
         const r = ex && ex.response;
         if (r) console.error('[tiktok] respuesta del servicio de firma: HTTP ' + r.status + ' ' + JSON.stringify(r.data).slice(0, 300));
       } catch (e) { /* nada */ }
-      const notLive = /offline|not.*live|LIVE has ended|not found|room id|UserOfflineError/i.test(msg);
+      const notLive = /offline|not.*live|isn't online|not online|LIVE has ended|not found|room id|UserOfflineError/i.test(msg);
       const signFail = /sign/i.test(msg);
       if (signFail) {
         // No martillar el servicio de firma: reintento más lento
