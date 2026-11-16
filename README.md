@@ -7,6 +7,9 @@ Juego para celular (APK) pensado para **TikTok Live**: cuando alguien entra a tu
 - 🎁 Los que mandan regalo o te siguen **pasan al frente** de la cola. Los comentarios salen como globo de texto.
 - Indicador **EN VIVO**: la app detecta si tu live está activo. El estado del servidor se ve en **⚙️ Ajustes**.
 - **2 cohetes** y un mapa con base espacial, cristales, torres, antenas y un rover que patrulla.
+- **Fila + revisión:** la gente espera en una fila marcada en el piso. Antes de subir, cada skin pasa por el arco de **REVISIÓN** y **2 policías** la escanean (sale un ✓ verde).
+- **Cohetes de reemplazo:** cuando un cohete despega, otro llega al instante a su lugar (cohete 3, 4, 5…). El que se fue viaja a un lugar distinto del sistema solar.
+- **Botón ☰ (arriba a la derecha):** abre el **mapa del sistema solar** con los cohetes en viaje, su destino, pasajeros, porcentaje y tiempo restante, y las llegadas.
 - **Modo Demo** y botón **Simular** para probar sin estar en vivo.
 
 ## 1) Conseguir el APK
